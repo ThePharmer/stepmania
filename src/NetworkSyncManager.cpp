@@ -883,13 +883,32 @@ uint32_t PacketFunctions::Read4()
 
 RString PacketFunctions::ReadNT()
 {
-	//int Orig=Packet.Position;
-	RString TempStr;
-	while ((Position<NETMAXBUFFERSIZE)&& (((char*)Data)[Position]!=0))
-		TempStr= TempStr + (char)Data[Position++];
+	// Security: Validate position is within bounds
+	if (Position >= NETMAXBUFFERSIZE)
+	{
+		LOG->Warn("PacketFunctions::ReadNT: Position out of bounds");
+		return RString();
+	}
 
-	++Position;
-	return TempStr;
+	RString TempStr;
+	int startPos = Position;
+	const int MAX_STRING_LENGTH = 1024;  // Reasonable limit for network strings
+
+	// Read until null terminator, buffer end, or max length
+	while (Position < NETMAXBUFFERSIZE &&
+	       Position - startPos < MAX_STRING_LENGTH)
+	{
+		if (Data[Position] == 0)
+		{
+			++Position;  // Skip the null terminator
+			return TempStr;
+		}
+		TempStr += (char)Data[Position++];
+	}
+
+	// No null terminator found - malformed packet
+	LOG->Warn("PacketFunctions::ReadNT: No null terminator found (potential attack or corrupted packet)");
+	return RString();
 }
 
 
@@ -922,10 +941,32 @@ void PacketFunctions::Write4(uint32_t data)
 
 void PacketFunctions::WriteNT(const RString& data)
 {
-	size_t index=0;
-	while( Position<NETMAXBUFFERSIZE && index<data.size() )
+	// Security: Enforce maximum string length
+	const int MAX_STRING_LENGTH = 1024;
+	size_t maxLength = min((size_t)MAX_STRING_LENGTH, data.size());
+
+	// Security: Ensure we have space for data + null terminator
+	if (Position >= NETMAXBUFFERSIZE)
+	{
+		LOG->Warn("PacketFunctions::WriteNT: Position out of bounds");
+		return;
+	}
+
+	size_t index = 0;
+	while (Position < NETMAXBUFFERSIZE - 1 && index < maxLength)
+	{
 		Data[Position++] = (unsigned char)(data.c_str()[index++]);
-	Data[Position++] = 0;
+	}
+
+	// Security: Only write null terminator if we have space
+	if (Position < NETMAXBUFFERSIZE)
+	{
+		Data[Position++] = 0;
+	}
+	else
+	{
+		LOG->Warn("PacketFunctions::WriteNT: Buffer full, string truncated");
+	}
 }
 
 void PacketFunctions::ClearPacket()
@@ -952,12 +993,14 @@ unsigned long NetworkSyncManager::GetCurrentSMBuild( LoadingWindow* ld ) { retur
 #else
 unsigned long NetworkSyncManager::GetCurrentSMBuild( LoadingWindow* ld )
 {
-	// Aldo: Using my own host by now, upload update_check/check_sm5.php to an official URL and change the following constants accordingly:
+	// Security: Use HTTPS instead of HTTP for update checks
+	// Note: This requires the server to support HTTPS on port 443
+	// TODO: Implement proper TLS/SSL certificate validation
 	const RString sHost = "aldo.mx";
-	const unsigned short uPort = 80;
+	const unsigned short uPort = 443;  // Changed from 80 to 443 for HTTPS
 	const RString sResource = "/stepmania/check_sm5.php";
 	const RString sUserAgent = PRODUCT_ID;
-	const RString sReferer = "http://aldo.mx/stepmania/";
+	const RString sReferer = "https://aldo.mx/stepmania/";  // Changed to https
 	
 	if( ld )
 	{

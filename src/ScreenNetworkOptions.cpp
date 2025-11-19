@@ -22,6 +22,16 @@ static LocalizedString DISCONNECTED		( "ScreenNetworkOptions", "Disconnected fro
 static LocalizedString ENTER_NETWORK_ADDRESS	( "ScreenNetworkOptions", "Enter a network address." );
 static LocalizedString CONNECT_TO_YOURSELF	( "ScreenNetworkOptions", "Use 127.0.0.1 to connect to yourself." );
 
+// Security warning for network play
+static LocalizedString NETWORK_SECURITY_WARNING	( "ScreenNetworkOptions",
+	"SECURITY WARNING: Network play is INSECURE\n\n"
+	"The network protocol has the following vulnerabilities:\n"
+	"- NO ENCRYPTION (all data sent in plaintext)\n"
+	"- NO AUTHENTICATION (no player verification)\n"
+	"- VULNERABLE TO ATTACKS (MitM, score tampering)\n\n"
+	"Only connect to servers you trust on secure networks.\n\n"
+	"Do you want to continue?" );
+
 enum NetworkOptionRow
 {
 	PO_CONNECTION,
@@ -37,6 +47,7 @@ enum DisplayScoreboard
 };
 
 AutoScreenMessage( SM_DoneConnecting );
+AutoScreenMessage( SM_SecurityWarningAnswer );
 
 Preference<RString> g_sLastServer( "LastConnectedServer",	"" );
 
@@ -92,7 +103,19 @@ void ScreenNetworkOptions::Init()
 
 void ScreenNetworkOptions::HandleScreenMessage( const ScreenMessage SM )
 {
-	if( SM == SM_DoneConnecting )
+	if( SM == SM_SecurityWarningAnswer )
+	{
+		// User responded to security warning
+		if( ScreenPrompt::s_LastAnswer == ANSWER_YES )
+		{
+			// User accepted the security warning, proceed with connection
+			ScreenTextEntry::TextEntry( SM_DoneConnecting,
+				ENTER_NETWORK_ADDRESS.GetValue()+"\n\n"+CONNECT_TO_YOURSELF.GetValue(),
+				g_sLastServer, 128 );
+		}
+		// If user said NO or cancelled, do nothing (stay on network options screen)
+	}
+	else if( SM == SM_DoneConnecting )
 	{
 		if( !ScreenTextEntry::s_bCancelledLast )
 		{
@@ -114,7 +137,11 @@ bool ScreenNetworkOptions::MenuStart( const InputEventPlus &input )
 	case PO_CONNECTION:
 		if ( !NSMAN->useSMserver )
 		{
-			ScreenTextEntry::TextEntry( SM_DoneConnecting, ENTER_NETWORK_ADDRESS.GetValue()+"\n\n"+CONNECT_TO_YOURSELF.GetValue(), g_sLastServer, 128 );
+			// Show security warning before allowing connection
+			ScreenPrompt::Prompt( SM_SecurityWarningAnswer,
+				NETWORK_SECURITY_WARNING.GetValue(),
+				PROMPT_YES_NO,
+				ANSWER_NO );  // Default to NO for safety
 		}
 		else
 		{

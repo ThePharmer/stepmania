@@ -1,5 +1,6 @@
 #include "global.h"
 #include "NotesLoaderSM.h"
+#include "MsdLoaderHelpers.h"
 #include "BackgroundUtil.h"
 #include "GameManager.h"
 #include "MsdFile.h"
@@ -34,58 +35,58 @@ typedef void (*song_tag_func_t)(SMSongTagInfo& info);
 
 // Functions for song tags go below this line. -Kyz
 /****************************************************************/
+// Common tag handlers now use template functions from MsdLoaderHelpers
 void SMSetTitle(SMSongTagInfo& info)
 {
-	info.song->m_sMainTitle = (*info.params)[1];
-	info.loader->SetSongTitle((*info.params)[1]);
+	MsdTagHandlers::SetTitle(info);
 }
 void SMSetSubtitle(SMSongTagInfo& info)
 {
-	info.song->m_sSubTitle = (*info.params)[1];
+	MsdTagHandlers::SetSubtitle(info);
 }
 void SMSetArtist(SMSongTagInfo& info)
 {
-	info.song->m_sArtist = (*info.params)[1];
+	MsdTagHandlers::SetArtist(info);
 }
 void SMSetTitleTranslit(SMSongTagInfo& info)
 {
-	info.song->m_sMainTitleTranslit = (*info.params)[1];
+	MsdTagHandlers::SetTitleTranslit(info);
 }
 void SMSetSubtitleTranslit(SMSongTagInfo& info)
 {
-	info.song->m_sSubTitleTranslit = (*info.params)[1];
+	MsdTagHandlers::SetSubtitleTranslit(info);
 }
 void SMSetArtistTranslit(SMSongTagInfo& info)
 {
-	info.song->m_sArtistTranslit = (*info.params)[1];
+	MsdTagHandlers::SetArtistTranslit(info);
 }
 void SMSetGenre(SMSongTagInfo& info)
 {
-	info.song->m_sGenre = (*info.params)[1];
+	MsdTagHandlers::SetGenre(info);
 }
 void SMSetCredit(SMSongTagInfo& info)
 {
-	info.song->m_sCredit = (*info.params)[1];
+	MsdTagHandlers::SetCredit(info);
 }
 void SMSetBanner(SMSongTagInfo& info)
 {
-	info.song->m_sBannerFile = (*info.params)[1];
+	MsdTagHandlers::SetBanner(info);
 }
 void SMSetBackground(SMSongTagInfo& info)
 {
-	info.song->m_sBackgroundFile = (*info.params)[1];
+	MsdTagHandlers::SetBackground(info);
 }
 void SMSetLyricsPath(SMSongTagInfo& info)
 {
-	info.song->m_sLyricsFile = (*info.params)[1];
+	MsdTagHandlers::SetLyricsPath(info);
 }
 void SMSetCDTitle(SMSongTagInfo& info)
 {
-	info.song->m_sCDTitleFile = (*info.params)[1];
+	MsdTagHandlers::SetCDTitle(info);
 }
 void SMSetMusic(SMSongTagInfo& info)
 {
-	info.song->m_sMusicFile = (*info.params)[1];
+	MsdTagHandlers::SetMusic(info);
 }
 void SMSetOffset(SMSongTagInfo& info)
 {
@@ -119,46 +120,19 @@ void SMSetInstrumentTrack(SMSongTagInfo& info)
 }
 void SMSetSampleStart(SMSongTagInfo& info)
 {
-	info.song->m_fMusicSampleStartSeconds = HHMMSSToSeconds((*info.params)[1]);
+	MsdTagHandlers::SetSampleStart(info);
 }
 void SMSetSampleLength(SMSongTagInfo& info)
 {
-	info.song->m_fMusicSampleLengthSeconds = HHMMSSToSeconds((*info.params)[1]);
+	MsdTagHandlers::SetSampleLength(info);
 }
 void SMSetDisplayBPM(SMSongTagInfo& info)
 {
-	// #DISPLAYBPM:[xxx][xxx:xxx]|[*];
-	if((*info.params)[1] == "*")
-	{ info.song->m_DisplayBPMType = DISPLAY_BPM_RANDOM; }
-	else
-	{
-		info.song->m_DisplayBPMType = DISPLAY_BPM_SPECIFIED;
-		info.song->m_fSpecifiedBPMMin = StringToFloat((*info.params)[1]);
-		if((*info.params)[2].empty())
-		{ info.song->m_fSpecifiedBPMMax = info.song->m_fSpecifiedBPMMin; }
-		else
-		{ info.song->m_fSpecifiedBPMMax = StringToFloat((*info.params)[2]); }
-	}
+	MsdTagHandlers::SetDisplayBPM(info);
 }
 void SMSetSelectable(SMSongTagInfo& info)
 {
-	if((*info.params)[1].EqualsNoCase("YES"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else if((*info.params)[1].EqualsNoCase("NO"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_NEVER; }
-	// ROULETTE from 3.9. It was removed since UnlockManager can serve
-	// the same purpose somehow. This, of course, assumes you're using
-	// unlocks. -aj
-	else if((*info.params)[1].EqualsNoCase("ROULETTE"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	/* The following two cases are just fixes to make sure simfiles that
-	 * used 3.9+ features are not excluded here */
-	else if((*info.params)[1].EqualsNoCase("ES") || (*info.params)[1].EqualsNoCase("OMES"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else if(StringToInt((*info.params)[1]) > 0)
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else
-	{ LOG->UserLog("Song file", info.path, "has an unknown #SELECTABLE value, \"%s\"; ignored.", (*info.params)[1].c_str()); }
+	MsdTagHandlers::SetSelectable(info);
 }
 void SMSetBGChanges(SMSongTagInfo& info)
 {
@@ -178,7 +152,7 @@ void SMSetFGChanges(SMSongTagInfo& info)
 }
 void SMSetKeysounds(SMSongTagInfo& info)
 {
-	split((*info.params)[1], ",", info.song->m_vsKeysoundFile);
+	MsdTagHandlers::SetKeysounds(info);
 }
 void SMSetAttacks(SMSongTagInfo& info)
 {

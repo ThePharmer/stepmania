@@ -11,6 +11,7 @@
 #include "ThemeMetric.h"
 #include "InputEventPlus.h"
 #include "TimingData.h"
+#include <set>
 
 class ScoreDisplay;
 class LifeMeter;
@@ -21,6 +22,7 @@ class RageTimer;
 class NoteField;
 class PlayerStageStats;
 class JudgedRows;
+class Style;
 
 // todo: replace these with a Message and MESSAGEMAN? -aj
 AutoScreenMessage( SM_100Combo );
@@ -150,6 +152,15 @@ protected:
 	void SendComboMessages( unsigned int iOldCombo, unsigned int iOldMissCombo );
 	void PlayKeysound( const TapNote &tn, TapNoteScore score );
 
+	// Step() helper functions to reduce complexity
+	void UpdateRollLife( int col, int iSongRow );
+	int FindClosestNote( int col, int row, int iSongRow, bool &outFoundNote );
+	TapNoteScore ScoreNote( int col, int iRowOfOverlappingNoteOrRow, float fTimeSinceStep,
+	                        float fLastBeatUpdate, bool bHeld, bool bRelease, float &outNoteOffset );
+	void CountCalories( bool bHeld, bool bRelease, int iSongRow );
+	void HandleKeysounds( int col, int iRowOfOverlappingNoteOrRow, int iSongRow,
+	                     TapNoteScore score, bool bRelease );
+
 	void SetMineJudgment( TapNoteScore tns , int iTrack );
 	void SetJudgment( int iRow, int iFirstTrack, const TapNote &tn ) { SetJudgment( iRow, iFirstTrack, tn, tn.result.tns, tn.result.fTapNoteOffset ); }	
 	void SetJudgment( int iRow, int iFirstTrack, const TapNote &tn, TapNoteScore tns, float fTapNoteOffset );	// -1 if no track as in TNS_Miss
@@ -229,6 +240,13 @@ protected:
 	vector<bool>	m_vbFretIsDown;
 
 	vector<RageSound>	m_vKeysounds;
+
+	// Performance optimizations - Phase 2
+	vector<TrackRowTapNote>	m_vHoldNotesToGradeTogether;  // Pre-allocated to avoid frame allocations
+	const Style*	m_pCachedStyle;  // Cache style pointer (never changes during gameplay)
+	set<int>	m_setAutoKeysoundRows;  // Sparse index of rows with autokeysounds
+	int		m_iCachedSongRow;  // Cached current row to avoid repeated BeatToNoteRow calls
+	float		m_fCachedSongBeat;  // Beat value used to compute cached row
 
 	ThemeMetric<float>	GRAY_ARROWS_Y_STANDARD;
 	ThemeMetric<float>	GRAY_ARROWS_Y_REVERSE;

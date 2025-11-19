@@ -17,6 +17,11 @@
 #include <deque>
 #include <set>
 
+// Forward declarations for manager classes
+class PlayerStateManager;
+class StageProgressionManager;
+class SongSelectionState;
+
 class Character;
 class Course;
 struct Game;
@@ -34,11 +39,16 @@ class Trail;
 
 SortOrder GetDefaultSort();
 
-/** @brief Holds game data that is not saved between sessions. */
+/**
+ * @brief Holds game data that is not saved between sessions.
+ *
+ * This class has been refactored to decompose the god object pattern.
+ * Player state, stage progression, and song selection are now managed
+ * by dedicated manager classes. GameState coordinates these managers
+ * and maintains backward compatibility through delegation.
+ */
 class GameState
 {
-	/** @brief The player number used with Styles where one player controls both sides. */
-	PlayerNumber	masterPlayerNumber;
 	/** @brief The TimingData that is used for processing certain functions. */
 	TimingData * processedTiming;
 public:
@@ -218,6 +228,14 @@ public:
 	bool m_AdjustTokensBySongCostForFinalStageCheck;
 
 	RString sExpandedSectionName;
+
+	// ========================================
+	// REFACTORED ARCHITECTURE NOTE:
+	// Player state, stage progression, and song selection methods have been
+	// extracted into focused manager classes. The managers operate on this
+	// class's public member variables to maintain full backward compatibility.
+	// This is Phase 1 of the refactoring - future phases can migrate data.
+	// ========================================
 
 	static int GetNumStagesMultiplierForSong( const Song* pSong );
 	static int GetNumStagesForSongAndStyleType( const Song* pSong, StyleType st );

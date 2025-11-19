@@ -1,4 +1,4 @@
-/* 
+/*
 http://en.wikipedia.org/wiki/INI_file
  - names and values are trimmed on both sides
  - semicolons start a comment line
@@ -9,6 +9,8 @@ http://en.wikipedia.org/wiki/INI_file
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "RageFile.h"
+#include "RageFileAtomic.h"
+#include "RageFileLock.h"
 
 
 IniFile::IniFile(): XNode("IniFile")
@@ -111,18 +113,40 @@ bool IniFile::ReadFile( RageFileBasic &f )
 
 bool IniFile::WriteFile( const RString &sPath ) const
 {
+	// Acquire file lock to prevent concurrent writes
+	RageFileLock lock(sPath);
+	if (!lock.Lock())
+	{
+		LOG->Warn( "Couldn't acquire lock for '%s' (another instance may be writing)", sPath.c_str() );
+		m_sError = "Could not acquire file lock";
+		return false;
+	}
+
+	// Use atomic writer to prevent data loss on crash
+	AtomicFileWriter writer(sPath);
 	RageFile f;
-	if( !f.Open( sPath, RageFile::WRITE ) )
+
+	if( !writer.Open(f) )
 	{
 		LOG->Warn( "Writing '%s' failed: %s", sPath.c_str(), f.GetError().c_str() );
 		m_sError = f.GetError();
 		return false;
 	}
 
+	// Write the INI content
 	bool bSuccess = IniFile::WriteFile( f );
-	int iFlush = f.Flush();
-	bSuccess &= (iFlush != -1);
-	return bSuccess;
+	if (!bSuccess)
+		return false;
+
+	// Atomic commit - data is now safely on disk
+	if( !writer.Commit(f) )
+	{
+		LOG->Warn( "Failed to commit '%s'", sPath.c_str() );
+		m_sError = "Failed to commit file atomically";
+		return false;
+	}
+
+	return true;
 }
 
 bool IniFile::WriteFile( RageFileBasic &f ) const
