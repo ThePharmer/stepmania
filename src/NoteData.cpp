@@ -722,24 +722,52 @@ bool NoteData::IsPlayer1(const int track, const TapNote &tn) const
 	return track < (this->GetNumTracks() / 2);
 }
 
-pair<int, int> NoteData::GetNumTapNotesTwoPlayer( int iStartIndex, int iEndIndex ) const
+// Generic template for counting notes per player
+// Uses lambda to determine which notes to count
+template<typename CountFunc>
+pair<int, int> NoteData::GetCountTwoPlayer(CountFunc counter, int startRow, int endRow) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); t++ )
+	pair<int, int> counts(0, 0);
+	for (int t = 0; t < GetNumTracks(); t++)
 	{
-		FOREACH_NONEMPTY_ROW_IN_TRACK_RANGE( *this, t, r, iStartIndex, iEndIndex )
+		FOREACH_NONEMPTY_ROW_IN_TRACK_RANGE(*this, t, r, startRow, endRow)
 		{
 			const TapNote &tn = GetTapNote(t, r);
-			if (this->IsTap(tn, r))
+			if (counter(tn, r))
 			{
-				if (this->IsPlayer1(t, tn))
-					num.first++;
-				else
-					num.second++;
+				IsPlayer1(t, tn) ? counts.first++ : counts.second++;
 			}
 		}
 	}
-	return num;
+	return counts;
+}
+
+// Generic template for iterator-based counting (holds, rolls, etc.)
+template<typename IteratorCountFunc>
+pair<int, int> NoteData::GetCountTwoPlayerIterator(IteratorCountFunc counter, int startRow, int endRow) const
+{
+	pair<int, int> counts(0, 0);
+	for (int t = 0; t < GetNumTracks(); t++)
+	{
+		NoteData::TrackMap::const_iterator begin, end;
+		GetTapNoteRangeExclusive(t, startRow, endRow, begin, end);
+		for (; begin != end; ++begin)
+		{
+			if (counter(begin->second, begin->first))
+			{
+				IsPlayer1(t, begin->second) ? counts.first++ : counts.second++;
+			}
+		}
+	}
+	return counts;
+}
+
+pair<int, int> NoteData::GetNumTapNotesTwoPlayer( int iStartIndex, int iEndIndex ) const
+{
+	return GetCountTwoPlayer(
+		[this](const TapNote &tn, int r) { return IsTap(tn, r); },
+		iStartIndex, iEndIndex
+	);
 }
 
 pair<int, int> NoteData::GetNumRowsWithSimultaneousTapsTwoPlayer(int minTaps,
@@ -786,129 +814,51 @@ pair<int, int> NoteData::GetNumQuadsTwoPlayer( int iStartIndex, int iEndIndex ) 
 
 pair<int, int> NoteData::GetNumHoldNotesTwoPlayer( int iStartIndex, int iEndIndex ) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); ++t )
-	{
-		NoteData::TrackMap::const_iterator lBegin, lEnd;
-		GetTapNoteRangeExclusive( t, iStartIndex, iEndIndex, lBegin, lEnd );
-		for( ; lBegin != lEnd; ++lBegin )
-		{
-			if( lBegin->second.type != TapNoteType_HoldHead ||
-			   lBegin->second.subType != TapNoteSubType_Hold )
-				continue;
-			if (!GAMESTATE->GetProcessedTimingData()->IsJudgableAtRow(lBegin->first))
-				continue;
-			if (this->IsPlayer1(t, lBegin->second))
-				num.first++;
-			else
-				num.second++;
-		}
-	}
-	return num;
+	return GetCountTwoPlayerIterator(
+		[](const TapNote &tn, int row) {
+			return tn.type == TapNoteType_HoldHead &&
+			       tn.subType == TapNoteSubType_Hold &&
+			       GAMESTATE->GetProcessedTimingData()->IsJudgableAtRow(row);
+		},
+		iStartIndex, iEndIndex
+	);
 }
 
 pair<int, int> NoteData::GetNumMinesTwoPlayer( int iStartIndex, int iEndIndex ) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); t++ )
-	{
-		FOREACH_NONEMPTY_ROW_IN_TRACK_RANGE( *this, t, r, iStartIndex, iEndIndex )
-		{
-			const TapNote &tn = GetTapNote(t, r);
-			if (this->IsMine(tn, r))
-			{
-				if (this->IsPlayer1(t, tn))
-					num.first++;
-				else
-					num.second++;
-			}
-		}
-	}
-	return num;
+	return GetCountTwoPlayer(
+		[this](const TapNote &tn, int r) { return IsMine(tn, r); },
+		iStartIndex, iEndIndex
+	);
 }
 
 pair<int, int> NoteData::GetNumRollsTwoPlayer( int iStartIndex, int iEndIndex ) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); ++t )
-	{
-		NoteData::TrackMap::const_iterator lBegin, lEnd;
-		GetTapNoteRangeExclusive( t, iStartIndex, iEndIndex, lBegin, lEnd );
-		for( ; lBegin != lEnd; ++lBegin )
-		{
-			if( lBegin->second.type != TapNoteType_HoldHead ||
-			   lBegin->second.subType != TapNoteSubType_Roll )
-				continue;
-			if (!GAMESTATE->GetProcessedTimingData()->IsJudgableAtRow(lBegin->first))
-				continue;
-			if (this->IsPlayer1(t, lBegin->second))
-				num.first++;
-			else
-				num.second++;
-		}
-	}
-	return num;
+	return GetCountTwoPlayerIterator(
+		[](const TapNote &tn, int row) {
+			return tn.type == TapNoteType_HoldHead &&
+			       tn.subType == TapNoteSubType_Roll &&
+			       GAMESTATE->GetProcessedTimingData()->IsJudgableAtRow(row);
+		},
+		iStartIndex, iEndIndex
+	);
 }
 
 pair<int, int> NoteData::GetNumLiftsTwoPlayer( int iStartIndex, int iEndIndex ) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); t++ )
-	{
-		FOREACH_NONEMPTY_ROW_IN_TRACK_RANGE( *this, t, r, iStartIndex, iEndIndex )
-		{
-			const TapNote &tn = GetTapNote(t, r);
-			if (this->IsLift(tn, r))
-			{
-				if (this->IsPlayer1(t, tn))
-					num.first++;
-				else
-					num.second++;
-			}
-		}
-	}
-	return num;
+	return GetCountTwoPlayer(
+		[this](const TapNote &tn, int r) { return IsLift(tn, r); },
+		iStartIndex, iEndIndex
+	);
 }
 
 pair<int, int> NoteData::GetNumFakesTwoPlayer( int iStartIndex, int iEndIndex ) const
 {
-	pair<int, int> num(0, 0);
-	for( int t=0; t<GetNumTracks(); t++ )
-	{
-		FOREACH_NONEMPTY_ROW_IN_TRACK_RANGE( *this, t, r, iStartIndex, iEndIndex )
-		{
-			const TapNote &tn = GetTapNote(t, r);
-			if (this->IsFake(tn, r))
-			{
-				if (this->IsPlayer1(t, tn))
-					num.first++;
-				else
-					num.second++;
-			}
-		}
-	}
-	return num;
+	return GetCountTwoPlayer(
+		[this](const TapNote &tn, int r) { return IsFake(tn, r); },
+		iStartIndex, iEndIndex
+	);
 }
-
-/*
-int NoteData::GetNumMinefields( int iStartIndex, int iEndIndex ) const
-{
-	int iNumMinefields = 0;
-	for( int t=0; t<GetNumTracks(); ++t )
-	{
-		NoteData::TrackMap::const_iterator begin, end;
-		GetTapNoteRangeExclusive( t, iStartIndex, iEndIndex, begin, end );
-		for( ; begin != end; ++begin )
-		{
-			if( begin->second.type != TapNoteType_HoldHead ||
-				begin->second.subType != TapNoteSubType_mine )
-				continue;
-			iNumMinefields++;
-		}
-	}
-	return iNumMinefields;
-}
-*/
 
 // -1 for iOriginalTracksToTakeFrom means no track
 void NoteData::LoadTransformed( const NoteData& in, int iNewNumTracks, const int iOriginalTrackToTakeFrom[] )

@@ -65,6 +65,7 @@ source_group("Data Structures\\\\Note Data"
              ${SM_DATA_NOTEDATA_HPP})
 
 list(APPEND SM_DATA_NOTELOAD_SRC
+            "MsdLoaderHelpers.cpp"
             "NotesLoader.cpp"
             "NotesLoaderBMS.cpp"
             "NotesLoaderDWI.cpp"
@@ -75,6 +76,7 @@ list(APPEND SM_DATA_NOTELOAD_SRC
             "NotesLoaderSSC.cpp")
 
 list(APPEND SM_DATA_NOTELOAD_HPP
+            "MsdLoaderHelpers.h"
             "NotesLoader.h"
             "NotesLoaderBMS.h"
             "NotesLoaderDWI.h"

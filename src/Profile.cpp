@@ -17,6 +17,8 @@
 #include "RageFile.h"
 #include "RageFileDriverDeflate.h"
 #include "RageFileManager.h"
+#include "RageFileAtomic.h"
+#include "RageFileLock.h"
 #include "LuaManager.h"
 #include "UnlockManager.h"
 #include "XmlFile.h"
@@ -1449,10 +1451,20 @@ bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 	// Save stats.xml
 	RString fn = sDir + (g_bProfileDataCompress? STATS_XML_GZ:STATS_XML);
 
+	// Acquire file lock to prevent concurrent writes
+	RageFileLock lock(fn);
+	if (!lock.Lock())
 	{
-		RString sError;
+		LuaHelpers::ReportScriptErrorFmt( "Couldn't acquire lock for %s (another instance may be writing)", fn.c_str() );
+		return false;
+	}
+
+	{
+		// Use atomic writer to prevent data loss on crash
+		AtomicFileWriter writer(fn);
 		RageFile f;
-		if( !f.Open(fn, RageFile::WRITE) )
+
+		if( !writer.Open(f) )
 		{
 			LuaHelpers::ReportScriptErrorFmt( "Couldn't open %s for writing: %s", fn.c_str(), f.GetError().c_str() );
 			return false;
@@ -1467,22 +1479,36 @@ bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 
 			if( gzip.Finish() == -1 )
 				return false;
+		}
+		else
+		{
+			if( !XmlFileUtil::SaveToFile( xml.get(), f, "", false ) )
+				return false;
+		}
 
+		// Atomic commit - data is now safely on disk
+		if( !writer.Commit(f) )
+		{
+			LuaHelpers::ReportScriptErrorFmt( "Failed to commit %s", fn.c_str() );
+			return false;
+		}
+
+		// After successfully saving, remove stray files
+		if( g_bProfileDataCompress )
+		{
 			/* After successfully saving STATS_XML_GZ, remove any stray STATS_XML. */
 			if( FILEMAN->IsAFile(sDir + STATS_XML) )
 				FILEMAN->Remove( sDir + STATS_XML );
 		}
 		else
 		{
-			if( !XmlFileUtil::SaveToFile( xml.get(), f, "", false ) )
-				return false;
-
 			/* After successfully saving STATS_XML, remove any stray STATS_XML_GZ. */
 			if( FILEMAN->IsAFile(sDir + STATS_XML_GZ) )
 				FILEMAN->Remove( sDir + STATS_XML_GZ );
 		}
 	}
 
+	// Sign after file is safely on disk
 	if( bSignData )
 	{
 		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;

@@ -1,5 +1,6 @@
 #include "global.h"
 #include "NotesLoaderSSC.h"
+#include "MsdLoaderHelpers.h"
 #include "BackgroundUtil.h"
 #include "GameManager.h"
 #include "MsdFile.h" // No JSON here.
@@ -68,38 +69,38 @@ typedef void (*song_tag_func_t)(SongTagInfo& info);
 
 // Functions for song tags go below this line. -Kyz
 /****************************************************************/
+// Common tag handlers now use template functions from MsdLoaderHelpers
 void SetVersion(SongTagInfo& info)
 {
 	info.song->m_fVersion = std::stof((*info.params)[1]);
 }
 void SetTitle(SongTagInfo& info)
 {
-	info.song->m_sMainTitle = (*info.params)[1];
-	info.loader->SetSongTitle((*info.params)[1]);
+	MsdTagHandlers::SetTitle(info);
 }
 void SetSubtitle(SongTagInfo& info)
 {
-	info.song->m_sSubTitle = (*info.params)[1];
+	MsdTagHandlers::SetSubtitle(info);
 }
 void SetArtist(SongTagInfo& info)
 {
-	info.song->m_sArtist = (*info.params)[1];
+	MsdTagHandlers::SetArtist(info);
 }
 void SetMainTitleTranslit(SongTagInfo& info)
 {
-	info.song->m_sMainTitleTranslit = (*info.params)[1];
+	MsdTagHandlers::SetTitleTranslit(info);
 }
 void SetSubtitleTranslit(SongTagInfo& info)
 {
-	info.song->m_sSubTitleTranslit = (*info.params)[1];
+	MsdTagHandlers::SetSubtitleTranslit(info);
 }
 void SetArtistTranslit(SongTagInfo& info)
 {
-	info.song->m_sArtistTranslit = (*info.params)[1];
+	MsdTagHandlers::SetArtistTranslit(info);
 }
 void SetGenre(SongTagInfo& info)
 {
-	info.song->m_sGenre = (*info.params)[1];
+	MsdTagHandlers::SetGenre(info);
 }
 void SetOrigin(SongTagInfo& info)
 {
@@ -107,16 +108,15 @@ void SetOrigin(SongTagInfo& info)
 }
 void SetCredit(SongTagInfo& info)
 {
-	info.song->m_sCredit = (*info.params)[1];
-	Trim(info.song->m_sCredit);
+	MsdTagHandlers::SetCredit(info);
 }
 void SetBanner(SongTagInfo& info)
 {
-	info.song->m_sBannerFile = (*info.params)[1];
+	MsdTagHandlers::SetBanner(info);
 }
 void SetBackground(SongTagInfo& info)
 {
-	info.song->m_sBackgroundFile = (*info.params)[1];
+	MsdTagHandlers::SetBackground(info);
 }
 void SetPreviewVid(SongTagInfo& info)
 {
@@ -136,15 +136,15 @@ void SetDiscImage(SongTagInfo& info)
 }
 void SetLyricsPath(SongTagInfo& info)
 {
-	info.song->m_sLyricsFile = (*info.params)[1];
+	MsdTagHandlers::SetLyricsPath(info);
 }
 void SetCDTitle(SongTagInfo& info)
 {
-	info.song->m_sCDTitleFile = (*info.params)[1];
+	MsdTagHandlers::SetCDTitle(info);
 }
 void SetMusic(SongTagInfo& info)
 {
-	info.song->m_sMusicFile = (*info.params)[1];
+	MsdTagHandlers::SetMusic(info);
 }
 void SetPreview(SongTagInfo& info)
 {
@@ -165,44 +165,19 @@ void SetLastSecondHint(SongTagInfo& info)
 }
 void SetSampleStart(SongTagInfo& info)
 {
-	info.song->m_fMusicSampleStartSeconds = HHMMSSToSeconds((*info.params)[1]);
+	MsdTagHandlers::SetSampleStart(info);
 }
 void SetSampleLength(SongTagInfo& info)
 {
-	info.song->m_fMusicSampleLengthSeconds = HHMMSSToSeconds((*info.params)[1]);
+	MsdTagHandlers::SetSampleLength(info);
 }
 void SetDisplayBPM(SongTagInfo& info)
 {
-	// #DISPLAYBPM:[xxx][xxx:xxx]|[*];
-	if((*info.params)[1] == "*")
-	{ info.song->m_DisplayBPMType = DISPLAY_BPM_RANDOM; }
-	else
-	{
-		info.song->m_DisplayBPMType = DISPLAY_BPM_SPECIFIED;
-		info.song->m_fSpecifiedBPMMin = std::stof((*info.params)[1]);
-		if((*info.params)[2].empty())
-		{ info.song->m_fSpecifiedBPMMax = info.song->m_fSpecifiedBPMMin; }
-		else
-		{ info.song->m_fSpecifiedBPMMax = std::stof((*info.params)[2]); }
-	}
+	MsdTagHandlers::SetDisplayBPM(info);
 }
 void SetSelectable(SongTagInfo& info)
 {
-	if((*info.params)[1].EqualsNoCase("YES"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else if((*info.params)[1].EqualsNoCase("NO"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_NEVER; }
-	// ROULETTE from 3.9 is no longer in use.
-	else if((*info.params)[1].EqualsNoCase("ROULETTE"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	/* The following two cases are just fixes to make sure simfiles that
-	 * used 3.9+ features are not excluded here */
-	else if((*info.params)[1].EqualsNoCase("ES") || (*info.params)[1].EqualsNoCase("OMES"))
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else if(StringToInt((*info.params)[1]) > 0)
-	{ info.song->m_SelectionDisplay = info.song->SHOW_ALWAYS; }
-	else
-	{ LOG->UserLog("Song file", info.path, "has an unknown #SELECTABLE value, \"%s\"; ignored.", (*info.params)[1].c_str()); }
+	MsdTagHandlers::SetSelectable(info);
 }
 void SetBGChanges(SongTagInfo& info)
 {
@@ -222,10 +197,7 @@ void SetFGChanges(SongTagInfo& info)
 }
 void SetKeysounds(SongTagInfo& info)
 {
-	RString keysounds = (*info.params)[1];
-	if(keysounds.length() >= 2 && keysounds.substr(0, 2) == "\\#")
-	{ keysounds = keysounds.substr(1); }
-	split(keysounds, ",", info.song->m_vsKeysoundFile);
+	MsdTagHandlers::SetKeysounds(info);
 }
 void SetAttacks(SongTagInfo& info)
 {

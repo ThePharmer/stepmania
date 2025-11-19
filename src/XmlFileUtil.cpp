@@ -3,10 +3,20 @@
 #include "XmlFile.h"
 #include "RageFile.h"
 #include "RageFileDriverMemory.h"
+#include "RageFileAtomic.h"
+#include "RageFileLock.h"
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "arch/Dialog/Dialog.h"
 #include "LuaManager.h"
+
+// Platform-specific includes for fsync
+#if defined(_WIN32)
+	#include <windows.h>
+	#include <io.h>
+#else
+	#include <unistd.h>
+#endif
 
 bool XmlFileUtil::LoadFromFileShowErrors( XNode &xml, RageFileBasic &f )
 {
@@ -505,21 +515,76 @@ bool XmlFileUtil::SaveToFile( const XNode *pNode, RageFileBasic &f, const RStrin
 	if( !GetXMLInternal(pNode, f, bWriteTabs, iTabBase) )
 		return false;
 	f.PutLine( "" );
+
+	// Flush to OS buffers
 	if( f.Flush() == -1 )
 		return false;
+
+	// Sync to disk (platform-specific fsync)
+	// Note: This only works if f is a RageFile, not all RageFileBasic types support GetFD()
+	RageFile* pRageFile = dynamic_cast<RageFile*>(&f);
+	if (pRageFile)
+	{
+		int fd = pRageFile->GetFD();
+		if (fd != -1)
+		{
+#if defined(_WIN32)
+			// Windows: Use FlushFileBuffers
+			HANDLE h = (HANDLE)_get_osfhandle(fd);
+			if (h != INVALID_HANDLE_VALUE)
+			{
+				if (!FlushFileBuffers(h))
+				{
+					LOG->Warn("XmlFileUtil::SaveToFile: FlushFileBuffers failed (error %d)", GetLastError());
+					// Don't fail the save operation, just log a warning
+				}
+			}
+#else
+			// POSIX: Use fsync
+			if (fsync(fd) == -1)
+			{
+				LOG->Warn("XmlFileUtil::SaveToFile: fsync failed: %s", strerror(errno));
+				// Don't fail the save operation, just log a warning
+			}
+#endif
+		}
+	}
+
 	return true;
 }
 
 bool XmlFileUtil::SaveToFile( const XNode *pNode, const RString &sFile, const RString &sStylesheet, bool bWriteTabs )
 {
+	// Acquire file lock to prevent concurrent writes
+	RageFileLock lock(sFile);
+	if (!lock.Lock())
+	{
+		LuaHelpers::ReportScriptErrorFmt( "Couldn't acquire lock for %s (another instance may be writing)", sFile.c_str() );
+		return false;
+	}
+
+	// Use atomic writer to prevent data loss on crash
+	AtomicFileWriter writer(sFile);
 	RageFile f;
-	if( !f.Open(sFile, RageFile::WRITE) )
+
+	if( !writer.Open(f) )
 	{
 		LuaHelpers::ReportScriptErrorFmt( "Couldn't open %s for writing: %s", sFile.c_str(), f.GetError().c_str() );
 		return false;
 	}
 
-	return SaveToFile( pNode, f, sStylesheet, bWriteTabs );
+	// Write the XML content
+	if( !SaveToFile( pNode, f, sStylesheet, bWriteTabs ) )
+		return false;
+
+	// Atomic commit - data is now safely on disk
+	if( !writer.Commit(f) )
+	{
+		LuaHelpers::ReportScriptErrorFmt( "Failed to commit %s", sFile.c_str() );
+		return false;
+	}
+
+	return true;
 }
 
 #include "LuaReference.h"

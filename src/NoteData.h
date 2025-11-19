@@ -116,6 +116,24 @@ private:
 	bool IsPlayer1(const int track, const TapNote &tn) const;
 
 	/**
+	 * @brief Generic template for counting notes per player using a lambda predicate.
+	 * @param counter Lambda that returns true if note should be counted.
+	 * @param startRow Starting row for search.
+	 * @param endRow Ending row for search.
+	 * @return Pair of counts (player1, player2). */
+	template<typename CountFunc>
+	pair<int, int> GetCountTwoPlayer(CountFunc counter, int startRow, int endRow) const;
+
+	/**
+	 * @brief Generic template for iterator-based counting per player.
+	 * @param counter Lambda that returns true if note should be counted.
+	 * @param startRow Starting row for search.
+	 * @param endRow Ending row for search.
+	 * @return Pair of counts (player1, player2). */
+	template<typename IteratorCountFunc>
+	pair<int, int> GetCountTwoPlayerIterator(IteratorCountFunc counter, int startRow, int endRow) const;
+
+	/**
 	 * @brief Determine if the note in question should be counted as a tap.
 	 * @param tn the note in question.
 	 * @param row the row it lives in.
