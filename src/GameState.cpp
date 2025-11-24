@@ -137,7 +137,10 @@ GameState::GameState() :
 	m_pEditSourceSteps(		Message_EditSourceStepsChanged ),
 	m_stEditSource(			Message_EditSourceStepsTypeChanged ),
 	m_iEditCourseEntryIndex(	Message_EditCourseEntryIndexChanged ),
-	m_sEditLocalProfileID(		Message_EditLocalProfileIDChanged )
+	m_sEditLocalProfileID(		Message_EditLocalProfileIDChanged ),
+	m_pPlayerStateManager(		nullptr ),
+	m_pStageProgressionManager(	nullptr ),
+	m_pSongSelectionState(		nullptr )
 {
 	g_pImpl = new GameStateImpl;
 
@@ -217,12 +220,12 @@ GameState::~GameState()
 
 PlayerNumber GameState::GetMasterPlayerNumber() const
 {
-	return this->masterPlayerNumber;
+	return m_pPlayerStateManager->GetMasterPlayerNumber();
 }
 
 void GameState::SetMasterPlayerNumber(const PlayerNumber p)
 {
-	this->masterPlayerNumber = p;
+	m_pPlayerStateManager->SetMasterPlayerNumber(p);
 }
 
 TimingData * GameState::GetProcessedTimingData() const
@@ -297,6 +300,11 @@ void GameState::ResetPlayerOptions( PlayerNumber pn )
 void GameState::Reset()
 {
 	this->SetMasterPlayerNumber(PLAYER_INVALID); // must initialize for UnjoinPlayer
+
+	// Reset decomposed managers to clear stale state
+	m_pPlayerStateManager->Reset();
+	m_pStageProgressionManager->Reset();
+	m_pSongSelectionState->Reset();
 
 	FOREACH_PlayerNumber( pn )
 		UnjoinPlayer( pn );

@@ -69,7 +69,7 @@ public:
 	void SetNumMultiplayerNoteFields(int n) { m_iNumMultiplayerNoteFields = n; }
 
 	MultiPlayerStatus GetMultiPlayerStatus(MultiPlayer mp) const { return m_MultiPlayerStatus[mp]; }
-	void SetMultiPlayerStatus(MultiPlayer mp, MultiPlayerStatus status) { m_MultiPlayerStatus = status; }
+	void SetMultiPlayerStatus(MultiPlayer mp, MultiPlayerStatus status) { m_MultiPlayerStatus[mp] = status; }
 
 	// Update
 	void Update(float fDelta);
