@@ -237,6 +237,11 @@ public:
 	// This is Phase 1 of the refactoring - future phases can migrate data.
 	// ========================================
 
+	// Manager accessors - provides access to the new focused manager classes
+	PlayerStateManager* GetPlayerStateManager() const { return m_pPlayerStateManager; }
+	StageProgressionManager* GetStageProgressionManager() const { return m_pStageProgressionManager; }
+	SongSelectionState* GetSongSelectionState() const { return m_pSongSelectionState; }
+
 	static int GetNumStagesMultiplierForSong( const Song* pSong );
 	static int GetNumStagesForSongAndStyleType( const Song* pSong, StyleType st );
 	int GetNumStagesForCurrentSongAndStepsOrCourse() const;
@@ -453,7 +458,12 @@ private:
 	GameState(const GameState& rhs);
 	GameState& operator=(const GameState& rhs);
 
+	// Manager instances - focused managers extracted from GameState
+	PlayerStateManager* m_pPlayerStateManager;
+	StageProgressionManager* m_pStageProgressionManager;
+	SongSelectionState* m_pSongSelectionState;
 };
+
 
 PlayerNumber GetNextHumanPlayer( PlayerNumber pn );
 PlayerNumber GetNextEnabledPlayer( PlayerNumber pn );

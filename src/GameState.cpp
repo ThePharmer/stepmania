@@ -41,6 +41,9 @@
 #include "UnlockManager.h"
 #include "ScreenManager.h"
 #include "Screen.h"
+#include "PlayerStateManager.h"
+#include "StageProgressionManager.h"
+#include "SongSelectionState.h"
 
 #include <ctime>
 #include <set>
@@ -174,6 +177,11 @@ GameState::GameState() :
 
 	sExpandedSectionName = "";
 
+	// Create the focused manager instances (refactored architecture)
+	m_pPlayerStateManager = new PlayerStateManager;
+	m_pStageProgressionManager = new StageProgressionManager;
+	m_pSongSelectionState = new SongSelectionState;
+
 	// Don't reset yet; let the first screen do it, so we can use PREFSMAN and THEME.
 	//Reset();
 
@@ -200,6 +208,11 @@ GameState::~GameState()
 	SAFE_DELETE( m_Environment );
 	SAFE_DELETE( g_pImpl );
 	SAFE_DELETE( processedTiming );
+
+	// Delete the focused manager instances
+	SAFE_DELETE( m_pPlayerStateManager );
+	SAFE_DELETE( m_pStageProgressionManager );
+	SAFE_DELETE( m_pSongSelectionState );
 }
 
 PlayerNumber GameState::GetMasterPlayerNumber() const

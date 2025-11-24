@@ -1,5 +1,6 @@
 list(APPEND SMDATA_SCREEN_GAMEPLAY_SRC
             "ScreenGameplay.cpp"
+            "ScreenGameplayLogic.cpp"
             "ScreenGameplayLesson.cpp"
             "ScreenGameplayNormal.cpp"
             "ScreenGameplayShared.cpp"
@@ -56,6 +57,8 @@ list(APPEND SMDATA_SCREEN_REST_SRC
             "ScreenDebugOverlay.cpp"
             "ScreenDemonstration.cpp"
             "ScreenEdit.cpp"
+            "ScreenEditState.cpp"
+            "ScreenEditNoteField.cpp"
             "ScreenEditMenu.cpp"
             "ScreenEnding.cpp"
             "ScreenEvaluation.cpp"
